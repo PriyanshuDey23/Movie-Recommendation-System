@@ -19,20 +19,20 @@ def fetch_poster(movie_id):
     
     
     # Construct the URL for the movie
-    url = base_url.format(movie_id,)
+    url = base_url.format(movie_id)
     
     try:
         # Make the request to fetch the movie data
         response = requests.get(url)
         response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)
 
-        # Parse the JSON response
+        # Convert to JSON 
         data = response.json()
 
         # Check if poster_path exists
         if 'poster_path' in data:
-            poster_path = data['poster_path']
-            full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
+            poster_path = data['poster_path'] # Last Part 
+            full_path = "https://image.tmdb.org/t/p/w500/" + poster_path # Full url
             return full_path
         else:
             print("Poster path not found.")
