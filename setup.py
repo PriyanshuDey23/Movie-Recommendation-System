@@ -9,7 +9,7 @@ REPO_NAME = "Movie-Recommendation-System"
 AUTHOR_USER_NAME = "Priyanshu Dey"
 SRC_REPO = "Movie-Recommendation-System"
 AUTHOR_EMAIL="priyanshudey.ds@gmail.com"
-LIST_OF_REQUIREMENTS = ['streamlit', 'numpy']
+
 
 
 setuptools.setup(

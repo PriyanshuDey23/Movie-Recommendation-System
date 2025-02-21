@@ -1,92 +1,84 @@
 import pickle
-import  streamlit as st
+import streamlit as st
 import numpy as np
 import requests
+import pandas as pd
+import os
+from dotenv import load_dotenv
 
-# Launch my webpage in my local host
+# Load environment variables
+load_dotenv()
+MOVIE_API_KEY = os.getenv("MOVIE_API_KEY") # https://developer.themoviedb.org/reference/intro/authentication
+
+# Ensure the API key is loaded
+if not MOVIE_API_KEY:
+    st.error("Error: MOVIE_API_KEY is missing! Check your .env file.")
+    st.stop()
+
+# Streamlit UI setup
 st.header("Movie Recommender System")
 
+# Load the movie data and similarity scores
+movies = pickle.load(open('artifacts\\movie_list\\movie_list.pkl', 'rb'))
+similarity = pickle.load(open('artifacts\\similarity_score\\similarity_score.pkl', 'rb'))
 
-# Load the artifacts
-movies = pickle.load(open('artifacts\\movie_list\\movie_list.pkl','rb'))
-similarity = pickle.load(open('artifacts\\similarity_score\\similarity_score.pkl','rb'))
-
-# Fetch Poster(If I pass the movie id , It will give me the poster)
+# Function to fetch movie poster using TMDb v4 Authentication
 def fetch_poster(movie_id):
-    # API key and base URLs
-    api_key="https://developer.themoviedb.org/reference/intro/authentication"
-    base_url = "https://api.themoviedb.org/3/movie/{}?api_key={}&language=en-US"
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}?language=en-US" 
     
-    
-    # Construct the URL for the movie
-    url = base_url.format(movie_id)
-    
+    headers = {
+        "Authorization": f"Bearer {MOVIE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
     try:
-        # Make the request to fetch the movie data
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)
 
-        # Convert to JSON 
         data = response.json()
 
-        # Check if poster_path exists
-        if 'poster_path' in data:
-            poster_path = data['poster_path'] # Last Part 
-            full_path = "https://image.tmdb.org/t/p/w500/" + poster_path # Full url
-            return full_path
+        if 'poster_path' in data and data['poster_path']:
+            return f"https://image.tmdb.org/t/p/w500{data['poster_path']}"
         else:
-            print("Poster path not found.")
-            return None
+            return "https://via.placeholder.com/500x750?text=No+Poster+Available"
 
-    except requests.exceptions.HTTPError as err:
-        print(f"HTTP error occurred: {err}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except requests.exceptions.RequestException as err:
+        st.error(f"API request error: {err}")
+        return "https://via.placeholder.com/500x750?text=Error+Fetching+Poster"
 
-    return None
-
-
-# Recommend Function
+# Function to get movie recommendations
 def recommend(movie):
-    index = movies[movies['title'] == movie].index[0]
+    try:
+        index = movies[movies['title'] == movie].index[0]
+    except IndexError:
+        st.error("Movie not found in database.")
+        return [], []
+
     distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
     recommended_movie_names = []
     recommended_movie_posters = []
-    for i in distances[1:6]:
-        # fetch the movie poster
-        movie_id = movies.iloc[i[0]].movie_id # Selecting the 5 movie id
-        recommended_movie_posters.append(fetch_poster(movie_id)) # Fetch the poster through movie index 
-        recommended_movie_names.append(movies.iloc[i[0]].title)  # Add the title
 
-    return recommended_movie_names,recommended_movie_posters
+    for i in distances[1:6]:  # Get top 5 recommendations
+        movie_id = movies.iloc[i[0]].movie_id
+        recommended_movie_posters.append(fetch_poster(movie_id))
+        recommended_movie_names.append(movies.iloc[i[0]].title)
 
+    return recommended_movie_names, recommended_movie_posters
 
-
-
-# Create selecting box  in which all the book name will be present
-movie_list=movies['title'].values
-selected_movie=st.selectbox(
+# Dropdown for movie selection
+movie_list = movies['title'].values
+selected_movie = st.selectbox(
     "Type or select a movie from the dropdown",
     movie_list
 )
 
+# Button to show recommendations
 if st.button('Show Recommendation'):
-    recommended_movie_names,recommended_movie_posters = recommend(selected_movie)
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.text(recommended_movie_names[0]) # Headline 
-        st.image(recommended_movie_posters[0])  # Url
-    with col2:
-        st.text(recommended_movie_names[1])
-        st.image(recommended_movie_posters[1])
+    recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
 
-    with col3:
-        st.text(recommended_movie_names[2])
-        st.image(recommended_movie_posters[2])
-    with col4:
-        st.text(recommended_movie_names[3])
-        st.image(recommended_movie_posters[3])
-    with col5:
-        st.text(recommended_movie_names[4])
-        st.image(recommended_movie_posters[4])
-
+    if recommended_movie_names:
+        cols = st.columns(5)
+        for i, col in enumerate(cols):
+            with col:
+                st.text(recommended_movie_names[i])
+                st.image(recommended_movie_posters[i])

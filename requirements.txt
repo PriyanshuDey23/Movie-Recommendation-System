@@ -1,5 +1,7 @@
-### dependency
+numpy
 streamlit
-
-### local packages -
+pandas
+matplotlib
+nltk
+python-dotenv
 -e . 
